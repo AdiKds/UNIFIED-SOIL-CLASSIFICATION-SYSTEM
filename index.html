@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USCS: Automated Mechanical Soil Classifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+            font-size: 16px;
+        }
+        .cyber-font { font-family: 'Orbitron', sans-serif; }
+        .mono-font { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #06b6d4; border-radius: 3px; }
+        
+        .theme-dark {
+            --bg-main: #020617;
+            --bg-card: #0f172a;
+            --border-color: #334155;
+            --text-muted: #f1f5f9;
+            --text-main: #ffffff;
+            --neon-cyan: rgba(6, 182, 212, 0.7);
+            --neon-amber: rgba(245, 158, 11, 0.7);
+            --bg-input: #1e293b;
+            --table-th-bg: #1e293b;
+            --table-th-text: #38bdf8;
+            --table-td-text: #ffffff;
+        }
+        .theme-light {
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --border-color: #94a3b8;
+            --text-muted: #1e293b;
+            --text-main: #020617;
+            --neon-cyan: rgba(6, 182, 212, 0.5);
+            --neon-amber: rgba(245, 158, 11, 0.5);
+            --bg-input: #f1f5f9;
+            --table-th-bg: #0369a1;
+            --table-th-text: #ffffff;
+            --table-td-text: #020617;
+        }
+
+        .theme-light .text-amber-500 { color: #d97706 !important; }
+        .theme-light .text-amber-400 { color: #b45309 !important; }
+        .theme-light .border-amber-500 { border-color: #d97706 !important; }
+        .theme-light .bg-amber-500 { background-color: #d97706 !important; }
+        .theme-light .accent-amber-500 { accent-color: #d97706 !important; }
+
+        .neon-border-cyan { box-shadow: 0 0 15px var(--neon-cyan); border: 2px solid #06b6d4; }
+        .neon-border-amber { box-shadow: 0 0 15px var(--neon-amber); border: 2px solid #f59e0b; }
+        canvas { cursor: crosshair; touch-action: none; }
+        
+        /* UI Tooltip Global */
+        .ui-tooltip { position: relative; }
+        .ui-tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute; 
+            top: 130%; 
+            left: 50%; 
+            transform: translateX(-50%);
+            background-color: #0f172a; 
+            color: #ffffff;
+            padding: 10px 14px; 
+            border-radius: 6px; 
+            font-family: 'Inter', sans-serif;
+            font-size: 12px; 
+            font-style: normal !important;
+            font-weight: 600; 
+            line-height: 1.4; 
+            white-space: normal;
+            width: max-content; 
+            max-width: 280px; 
+            box-shadow: 0 6px 20px rgba(0,0,0,0.6); 
+            border: 1px solid #06b6d4; 
+            z-index: 100; 
+            opacity: 0; 
+            pointer-events: none; 
+            transition: opacity 0.2s ease;
+        }
+        .ui-tooltip:hover::after { opacity: 1; }
+
+        /* Tooltip khusus untuk klaster tombol kanan bawah */
+        .control-tooltip { position: relative; }
+        .control-tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            right: 125%;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-style: normal !important;
+            font-weight: 600;
+            line-height: 1.4;
+            white-space: nowrap;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+            border: 1px solid #06b6d4;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .control-tooltip:hover::after { opacity: 1; }
+
+        /* Tooltip Grafik */
+        .geo-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(6px);
+            border: 2px solid #06b6d4;
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            max-width: 260px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            z-index: 40;
+            display: none;
+            line-height: 1.4;
+            transition: opacity 0.1s ease;
+        }
+
+        /* Tabel Referensi Matriks (Dioptimasi Lebarnya untuk 7 Kolom) */
+        .uscs-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; table-layout: fixed; }
+        .uscs-table th, .uscs-table td { border: 1px solid var(--border-color); padding: 10px; line-height: 1.5; vertical-align: top; word-wrap: break-word; }
+        .uscs-table th { background-color: var(--table-th-bg); color: var(--table-th-text); font-weight: 800; text-transform: uppercase; font-size: 13px; text-align: center; }
+        .uscs-table td { color: var(--table-td-text); background-color: var(--bg-card); }
+        .uscs-table strong { color: #06b6d4; }
+        .theme-light .uscs-table strong { color: #0369a1; }
+
+        .modal-enter { animation: modalFadeInScale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .modal-exit { animation: modalFadeOutScale 0.3s ease-in forwards; }
+        .overlay-enter { animation: fadeIn 0.3s ease-out forwards; }
+        .overlay-exit { animation: fadeOut 0.3s ease-in forwards; }
+
+        @keyframes modalFadeInScale {
+            0% { opacity: 0; transform: scale(0.8) translateY(30px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes modalFadeOutScale {
+            0% { opacity: 1; transform: scale(1) translateY(0); }
+            100% { opacity: 0; transform: scale(0.8) translateY(30px); }
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+    </style>
+</head>
+<body id="appBody" class="theme-dark bg-[var(--bg-main)] text-[var(--text-main)] min-h-screen selection:bg-cyan-500 selection:text-black pb-2">
+
+    <div class="h-1.5 w-full bg-gradient-to-r from-cyan-500 via-amber-500 to-emerald-500 shadow-[0_0_15px_rgba(6,182,212,0.8)]"></div>
+
+    <header class="border-b border-[var(--border-color)] bg-slate-950/80 backdrop-blur-md sticky top-0 z-30 px-6 py-2.5 transition-colors">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-2">
+            <div class="flex items-center gap-3">
+                <div class="bg-amber-500 text-slate-950 p-2 rounded-bl-xl rounded-tr-xl font-black text-xl tracking-wider cyber-font shadow-[0_0_15px_rgba(245,158,11,0.5)]">
+                    USCS<span class="text-cyan-600">_</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black tracking-widest cyber-font flex items-center gap-2 text-white">
+                        UNIFIED SOIL CLASSIFICATION SYSTEM
+                    </h1>
+                    <p class="text-xs text-amber-400 font-mono font-bold tracking-wider">REGULATORY ENGINE: ASTM D-2487 // LAB ANALYSIS STATION</p>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="openModalWithAnim('helpModal')" class="ui-tooltip bg-emerald-950 text-emerald-300 border border-emerald-500 text-xs font-mono font-black px-4 py-2 rounded-lg cursor-pointer transition-all hover:bg-emerald-900 shadow-md" data-tooltip="Buka panduan penggunaan, metodologi ASTM, dan tabel matriks.">
+                    <i class="fa-solid fa-circle-question mr-1"></i> HELP SYSTEM
+                </button>
+                <button type="button" onclick="openModalWithAnim('creatorModal')" class="ui-tooltip bg-gradient-to-r from-cyan-700 to-blue-700 text-white text-xs font-mono font-black px-4 py-2 rounded-lg cursor-pointer transition-all shadow-md hover:from-cyan-600 hover:to-blue-600" data-tooltip="Informasi profile pengembang sistem.">
+                    <i class="fa-solid fa-code mr-1"></i> CREATOR
+                </button>
+                <button type="button" onclick="toggleThemeInterface()" class="ui-tooltip bg-slate-900 border border-[var(--border-color)] text-xs font-mono font-black px-4 py-2 rounded-lg cursor-pointer transition-all shadow-md text-cyan-400 hover:bg-slate-800" data-tooltip="Ganti skema warna antarmuka.">
+                    <i id="themeIcon" class="fa-solid fa-moon mr-1"></i> <span id="themeText">DARK</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-3 lg:px-6">
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+            
+            <div class="xl:col-span-5 space-y-3.5">
+                <section class="bg-[var(--bg-card)] p-4 rounded-xl neon-border-amber backdrop-blur-sm relative transition-all">
+                    <h2 class="text-sm font-black tracking-wider text-amber-500 cyber-font mb-3.5 uppercase">
+                        <i class="fa-solid fa-flask-vial text-base mr-1"></i> Gradasi & Plastisitas Lab
+                    </h2>
+                    
+                    <form id="uscsForm" class="space-y-4 font-mono text-sm font-bold" onsubmit="return false;">
+                        <div class="ui-tooltip" data-tooltip="Persentase berat tanah lolos saringan No. 200 (0.075 mm). Nilai >= 50% berarti material didominasi butir halus (Silt/Clay).">
+                            <div class="flex justify-between mb-1 text-[var(--text-main)] text-sm tracking-wide font-bold">
+                                <span>LOLOS NO. 200 (FINES)</span>
+                                <span class="text-amber-500 text-base font-black" id="valF200">55.0%</span>
+                            </div>
+                            <input type="range" id="f200" min="0" max="100" step="0.5" value="55" class="w-full accent-amber-500 bg-slate-700 h-2 rounded-lg cursor-pointer transition-all">
+                        </div>
+
+                        <div class="ui-tooltip" data-tooltip="Persentase material lolos saringan No. 4 (4.75 mm). Digunakan untuk memisahkan persentase Kerikil (Gravel) dan Pasir (Sand).">
+                            <div class="flex justify-between mb-1 text-[var(--text-main)] text-sm tracking-wide font-bold">
+                                <span>LOLOS NO. 4 (SAND/GRAVEL)</span>
+                                <span class="text-amber-500 text-base font-black" id="valF4">85.0%</span>
+                            </div>
+                            <input type="range" id="f4" min="0" max="100" step="0.5" value="85" class="w-full accent-amber-500 bg-slate-700 h-2 rounded-lg cursor-pointer transition-all">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="ui-tooltip" data-tooltip="Batas Cair (Liquid Limit): Kadar air maksimum di mana tanah berubah dari wujud plastis menjadi cair. Menentukan tinggi kurva Atterberg.">
+                                <label class="block text-xs text-[var(--text-muted)] mb-1 uppercase font-bold cursor-help border-b border-dashed border-[var(--text-muted)] w-max">LIQUID LIMIT (LL) %</label>
+                                <input type="number" id="ll" min="0" max="100" value="47" class="w-full bg-[var(--bg-input)] border border-[var(--border-color)] focus:border-amber-500 text-amber-500 font-black rounded-md px-2.5 py-1 text-base outline-none transition-all">
+                            </div>
+                            <div class="ui-tooltip" data-tooltip="Batas Plastis (Plastic Limit): Kadar air minimum di mana tanah mulai retak saat digulung dengan diameter 3mm. Menentukan nilai Indeks Plastisitas (PI = LL - PL).">
+                                <label class="block text-xs text-[var(--text-muted)] mb-1 uppercase font-bold cursor-help border-b border-dashed border-[var(--text-muted)] w-max">PLASTIC LIMIT (PL) %</label>
+                                <input type="number" id="pl" min="0" max="100" value="18" class="w-full bg-[var(--bg-input)] border border-[var(--border-color)] focus:border-amber-500 text-amber-500 font-black rounded-md px-2.5 py-1 text-base outline-none transition-all">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="ui-tooltip" data-tooltip="Koefisien Keseragaman (Uniformity Coefficient). Syarat gradasi baik: Cu >= 4 (Kerikil) atau Cu >= 6 (Pasir).">
+                                <label class="block text-xs text-[var(--text-muted)] mb-1 uppercase font-bold cursor-help border-b border-dashed border-[var(--text-muted)] w-max">COEF. UNIFORMITY (Cu)</label>
+                                <input type="number" id="cu" min="0" step="0.1" value="5.2" class="w-full bg-[var(--bg-input)] border border-[var(--border-color)] focus:border-amber-400 font-black rounded-md px-2.5 py-1 text-base outline-none">
+                            </div>
+                            <div class="ui-tooltip" data-tooltip="Koefisien Kelengkungan (Coefficient of Curvature). Syarat mutlak gradasi baik: Nilai Cc harus berada di antara rentang 1 hingga 3.">
+                                <label class="block text-xs text-[var(--text-muted)] mb-1 uppercase font-bold cursor-help border-b border-dashed border-[var(--text-muted)] w-max">COEF. CURVATURE (Cc)</label>
+                                <input type="number" id="cc" min="0" step="0.1" value="1.8" class="w-full bg-[var(--bg-input)] border border-[var(--border-color)] focus:border-amber-400 font-black rounded-md px-2.5 py-1 text-base outline-none">
+                            </div>
+                        </div>
+
+                        <div class="pt-0.5">
+                            <label class="flex items-center gap-2.5 cursor-pointer text-[var(--text-main)] text-xs w-max ui-tooltip" data-tooltip="Centang jika tanah berbau busuk khas humus, berwarna hitam pekat, atau memiliki kandungan sisa pelapukan tanaman.">
+                                <input type="checkbox" id="isOrganic" class="accent-amber-500 h-4 w-4 rounded">
+                                <span class="leading-tight font-bold text-sm border-b border-dashed border-[var(--text-muted)]">KANDUNGAN ORGANIK TINGGI (OL/OH)</span>
+                            </label>
+                        </div>
+
+                        <div class="flex gap-2.5 mt-1">
+                            <button type="button" onclick="resetFormInputs()" class="ui-tooltip bg-slate-700 hover:bg-slate-600 text-white font-black text-sm py-2 px-4 rounded-lg transition-all uppercase flex-shrink-0" data-tooltip="Reset semua pengaturan input ke nilai awal.">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </button>
+                            <button type="button" onclick="evaluateUscsClassification()" class="w-full bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-slate-950 font-black tracking-widest text-sm py-2.5 rounded-lg transition-all duration-300 cyber-font shadow-md uppercase">
+                                <i class="fa-solid fa-calculator mr-1.5"></i> Kalkulasi
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="bg-[var(--bg-card)] p-4 rounded-xl border border-[var(--border-color)] font-mono font-bold space-y-2.5 shadow-md h-auto overflow-visible">
+                    <div class="text-cyan-500 font-black border-b border-slate-700/60 pb-1.5 uppercase tracking-wider text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-layer-group text-base"></i> Rentang Ukuran Butiran (ASTM)
+                    </div>
+                    <div class="grid grid-cols-2 gap-y-1.5 text-[var(--text-muted)] text-[13px]">
+                        <span>Boulders:</span> <span class="text-right text-[var(--text-main)] font-bold">&gt; 12 in. (300-mm)</span>
+                        <span>Cobbles:</span> <span class="text-right text-[var(--text-main)] font-bold">3 in. s/d 12 in.</span>
+                        <span>Gravel (Coarse):</span> <span class="text-right text-[var(--text-main)] font-bold">3 in. s/d 3/4 in.</span>
+                        <span>Gravel (Fine):</span> <span class="text-right text-[var(--text-main)] font-bold">3/4 in. s/d No. 4</span>
+                        <span>Sand (Coarse):</span> <span class="text-right text-[var(--text-main)] font-bold">No. 4 s/d No. 10</span>
+                        <span>Sand (Medium):</span> <span class="text-right text-[var(--text-main)] font-bold">No. 10 s/d No. 40</span>
+                        <span>Sand (Fine):</span> <span class="text-right text-[var(--text-main)] font-bold">No. 40 s/d No. 200</span>
+                        <span>Fines (Silt/Clay):</span> <span class="text-right text-[var(--text-main)] font-bold">&lt; No. 200</span>
+                    </div>
+                </section>
+            </div>
+
+            <div class="xl:col-span-7 space-y-3.5">
+                <section class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 rounded-xl shadow-md relative overflow-hidden">
+                        <div class="relative z-10">
+                            <span class="text-[11px] font-mono text-[var(--text-muted)] font-bold block uppercase tracking-wider">DEVISI UTAMA</span>
+                            <span id="resMajorDivision" class="text-xs font-black text-amber-500 cyber-font uppercase mt-0.5 block leading-tight">FINE-GRAINED</span>
+                        </div>
+                        <i class="fa-solid fa-chart-pie text-4xl text-amber-500/15 absolute right-2 top-1/2 -translate-y-1/2 z-0"></i>
+                    </div>
+                    <div class="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 rounded-xl shadow-md border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.2)] relative overflow-hidden">
+                        <div class="relative z-10">
+                            <span class="text-[11px] font-mono text-[var(--text-muted)] font-bold block uppercase tracking-wider">SIMBOL GRUP USCS</span>
+                            <span id="resGroupSymbol" class="text-3xl font-black text-cyan-500 cyber-font tracking-widest block mt-0.5">CL</span>
+                        </div>
+                        <i class="fa-solid fa-fingerprint text-4xl text-cyan-500/15 absolute right-2 top-1/2 -translate-y-1/2 z-0"></i>
+                    </div>
+                    <div class="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 rounded-xl shadow-md relative overflow-hidden">
+                        <div class="relative z-10">
+                            <span class="text-[11px] font-mono text-[var(--text-muted)] font-bold block uppercase tracking-wider">INDEKS PLASTISITAS (PI)</span>
+                            <span id="resPiText" class="text-xl font-black text-emerald-500 cyber-font block mt-0.5">29.0%</span>
+                        </div>
+                        <i class="fa-solid fa-chart-line text-4xl text-emerald-500/15 absolute right-2 top-1/2 -translate-y-1/2 z-0"></i>
+                    </div>
+                </section>
+
+                <div class="bg-[var(--bg-card)] p-4 rounded-xl border border-[var(--border-color)] relative canvas-container shadow-md">
+                    <div id="chartTooltip" class="geo-tooltip"></div>
+                    
+                    <div class="flex justify-between items-center mb-2.5">
+                        <h3 class="text-xs font-black font-mono tracking-widest text-[var(--text-main)] uppercase flex items-center gap-2">
+                            <i class="fa-solid fa-chart-area text-cyan-500"></i> GRAFIK PLASTISITAS INTERAKTIF
+                        </h3>
+                        <span class="text-xs font-mono font-black text-cyan-500 bg-cyan-950/50 px-2.5 py-1 rounded border border-cyan-800" id="chartCoordText">(LL: 47, PI: 29)</span>
+                    </div>
+                    <div class="flex justify-center bg-slate-950/60 p-1.5 rounded-lg border border-[var(--border-color)] relative">
+                        <canvas id="uscsChartCanvas" width="800" height="400" class="w-full max-w-[800px] aspect-[16/8] rounded bg-slate-900/50"></canvas>
+                        <div id="coarseWarning" class="absolute inset-0 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm rounded-lg hidden pointer-events-none z-10">
+                            <div class="text-center p-5 border border-amber-500 rounded-xl bg-slate-900 shadow-[0_0_20px_rgba(245,158,11,0.25)] max-w-md">
+                                <i class="fa-solid fa-triangle-exclamation text-3xl text-amber-500 mb-2"></i>
+                                <h4 class="text-amber-500 cyber-font text-base font-black tracking-widest mb-1">MATERIAL KASAR DOMINAN</h4>
+                                <p class="text-slate-300 font-mono text-xs leading-relaxed">
+                                    Sampel memiliki fraksi halus (Fines) kurang dari 5%.<br>
+                                    <strong>Grafik Plastisitas Atterberg tidak relevan / tanah bersifat Non-Plastis.</strong><br>
+                                    Klasifikasi sepenuhnya ditentukan oleh Parameter Gradasi (Cu & Cc).
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <section class="bg-[var(--bg-card)] p-4 rounded-xl border border-[var(--border-color)] shadow-md h-auto overflow-visible">
+                    <h3 class="text-xs font-black tracking-wider cyber-font text-emerald-400 mb-3 border-b border-[var(--border-color)] pb-1.5">
+                        <i class="fa-solid fa-terminal mr-1.5"></i> TERMINAL LOG KESIMPULAN
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 font-mono text-xs font-bold text-[var(--text-muted)]">
+                        <div class="flex flex-col border-b border-[var(--border-color)] pb-2">
+                            <span class="text-[11px] text-cyan-500 tracking-wider font-bold">NAMA DESKRIPSI TANAH (TYPICAL NAME):</span>
+                            <strong class="text-[var(--text-main)] text-base mt-1 font-bold leading-relaxed whitespace-normal break-words" id="logGroupIdName">-</strong>
+                        </div>
+                        <div class="flex flex-col border-b border-[var(--border-color)] pb-2">
+                            <span class="text-[11px] text-cyan-500 tracking-wider font-bold">KRITERIA / DEVISI BUTIRAN:</span>
+                            <strong class="text-[var(--text-main)] text-base mt-1 font-bold leading-relaxed whitespace-normal break-words" id="logGrainCriteria">-</strong>
+                        </div>
+                        <div class="flex flex-col border-b border-[var(--border-color)] pb-2">
+                            <span class="text-[11px] text-cyan-500 tracking-wider font-bold">POSISI ATTERBERG LINE:</span>
+                            <strong class="text-[var(--text-main)] text-base mt-1 font-bold leading-relaxed whitespace-normal break-words" id="logLinePosition">-</strong>
+                        </div>
+                        <div class="flex flex-col border-b border-[var(--border-color)] pb-2">
+                            <span class="text-[11px] text-cyan-500 tracking-wider font-bold">METRIK KOEF. GRADASI:</span>
+                            <strong class="text-[var(--text-main)] text-base mt-1 font-bold leading-relaxed whitespace-normal break-words" id="logGradationMetric">-</strong>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <div class="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2.5 font-mono">
+        <div id="floatingChatPanel" class="w-[350px] sm:w-[400px] bg-slate-900/95 backdrop-blur-md border-2 border-cyan-500 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.7)] overflow-hidden hidden transition-all flex-col max-h-[440px]">
+            <div class="bg-slate-950 border-b border-cyan-900/60 p-3 flex justify-between items-center">
+                <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-robot text-cyan-400 text-xl animate-bounce"></i>
+                    <div>
+                        <h4 class="text-xs font-black tracking-wider cyber-font text-white uppercase">USCS Agent</h4>
+                        <p class="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest">Geotechnical AI</p>
+                    </div>
+                </div>
+                <button onclick="toggleFloatingChatbot()" class="text-slate-400 hover:text-white cursor-pointer p-1.5">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <div class="p-3 space-y-3 text-xs leading-relaxed overflow-y-auto flex-1 bg-slate-950/30" id="chatContainer">
+                <div class="flex gap-2.5">
+                    <div class="bg-cyan-950 border border-cyan-600/50 h-7 w-7 rounded flex items-center justify-center flex-shrink-0 text-cyan-400"><i class="fa-solid fa-robot text-xs"></i></div>
+                    <div class="bg-slate-800 border border-slate-700 p-2.5 rounded-r-xl rounded-bl-xl text-slate-200">
+                        <p class="font-bold text-[10px] text-cyan-400 mb-0.5">🤖 USCS SYSTEM:</p>
+                        <span>Halo! Silakan ketik <strong>"USCS"</strong> atau <strong>"Pengembang"</strong> untuk info sistem. Anda juga dapat mengetik simbol tanah (contoh: <strong>GW</strong>, <strong>CH</strong>, <strong>SM</strong>) untuk mendapatkan laporan detil penerapan di lapangan, saran teknis, dan kesimpulannya.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-2.5 bg-slate-950 border-t border-slate-800 flex gap-2">
+                <input type="text" id="chatInputField" placeholder="Ketik GW, CH, USCS..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-cyan-500 font-sans" onkeydown="if(event.key === 'Enter') processUserChatMessage()">
+                <button onclick="processUserChatMessage()" class="bg-cyan-600 hover:bg-cyan-500 text-slate-950 px-3 py-1.5 rounded-lg text-xs font-black transition-all">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2.5">
+            <button type="button" onclick="openModalWithAnim('databaseModal')" class="control-tooltip bg-purple-600 hover:bg-purple-500 text-white border border-purple-400 h-11 w-11 rounded-full shadow-[0_4px_20px_rgba(147,51,234,0.5)] flex items-center justify-center transition-all hover:scale-110 relative" data-tooltip="Buka Tabel Referensi Database USCS">
+                <i class="fa-solid fa-table text-lg"></i>
+            </button>
+            <button type="button" onclick="resetFormInputs()" class="control-tooltip bg-rose-600 hover:bg-rose-500 text-white border-2 border-rose-400 h-11 w-11 rounded-full shadow-[0_4px_20px_rgba(225,29,72,0.5)] flex items-center justify-center transition-all hover:scale-110 relative" data-tooltip="Reset Semua Nilai ke Default">
+                <i class="fa-solid fa-rotate-right text-lg"></i>
+            </button>
+            <button type="button" onclick="toggleFloatingChatbot()" class="control-tooltip bg-cyan-600 hover:bg-cyan-500 text-slate-950 border border-cyan-400 h-11 w-11 rounded-full shadow-[0_4px_20px_rgba(6,182,212,0.5)] flex items-center justify-center transition-all hover:scale-110 relative" data-tooltip="Robot Asisten USCS">
+                <div class="h-2.5 w-2.5 bg-emerald-400 rounded-full absolute top-0.5 right-0.5 animate-pulse border border-slate-950"></div>
+                <i id="botToggleIcon" class="fa-solid fa-comments text-lg"></i>
+            </button>
+        </div>
+    </div>
+
+    <div id="databaseModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm overlay-base" onclick="closeModalWithAnim('databaseModal')"></div>
+        <div class="bg-slate-900 border-2 border-purple-500 rounded-2xl w-full max-w-7xl max-h-[90vh] flex flex-col shadow-[0_0_40px_rgba(147,51,234,0.4)] overflow-hidden relative z-10 modal-panel">
+            <div class="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
+                <div class="flex items-center gap-3 text-purple-400 font-black cyber-font text-base tracking-wider uppercase">
+                    <i class="fa-solid fa-table text-lg"></i> DATABASE REFERENSI USCS (ASTM D-2487)
+                </div>
+                <button onclick="closeModalWithAnim('databaseModal')" class="text-slate-400 hover:text-red-400 cursor-pointer text-xl transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div class="p-4 overflow-y-auto bg-[var(--bg-main)]">
+                <table class="uscs-table">
+                    colgroup>
+                        <col style="width: 10%;">
+                        <col style="width: 10%;">
+                        <col style="width: 8%;">
+                        <col style="width: 22%;">
+                        <col style="width: 18%;">
+                        <col style="width: 18%;">
+                        <col style="width: 14%;">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>MAJOR DIVISIONS</th>
+                            <th>SUB-DIVISIONS</th>
+                            <th>SYMBOL</th>
+                            <th>TYPICAL NAMES & EXPLANATION</th>
+                            <th>PENERAPAN LAPANGAN</th>
+                            <th>SARAN TEKNIS</th>
+                            <th>KESIMPULAN</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td rowspan="8" class="font-bold text-center align-middle bg-slate-800/30">COARSE GRAINED<br><span class="text-[10px] font-normal">(Lolos No.200 &lt; 50%)</span></td>
+                            <td rowspan="4" class="font-bold text-center align-middle">GRAVELS<br><span class="text-[10px] font-normal">(Fraksi kasar lolos No.4 &lt; 50%)</span></td>
+                            <td class="font-black text-center text-cyan-400 text-sm">GW</td>
+                            <td><strong>Well-graded gravel:</strong> Campuran kerikil-pasir bergradasi baik dengan sedikit/tanpa fraksi halus.</td>
+                            <td>Lapis pondasi bawah (sub-base) jalan, bahan urugan struktur, zona transisi/filter bendungan.</td>
+                            <td>Padatkan dengan Vibratory Roller untuk kerapatan maksimum. Drainase alami sangat baik.</td>
+                            <td class="font-bold text-emerald-400">Daya dukung tinggi, stabilitas luar biasa.</td>
+                        </tr>
+                        <tr>
+                            <td class="font-black text-center text-cyan-400 text-sm">GP</td>
+                            <td><strong>Poorly-graded gravel:</strong> Campuran kerikil-pasir bergradasi buruk atau seragam tanpa material pengisi rongga.</td>
+                            <td>Bahan pengisi drainase konvensional (french drain), urugan non-struktural ringan.</td>
+                            <td>Sulit dipadatkan karena ukuran seragam. Berhati-hati jika memikul beban dinamis gempa.</td>
+                            <td class="font-bold text-amber-400">Daya dukung sedang, meloloskan air dengan cepat.</td>
+                        </tr>
+                        <tr>
+                            <td class="font-black text-center text-cyan-400 text-sm">GM</td>
+                            <td><strong>Silty gravel:</strong> Campuran kerikil-pasir-lanau dengan fraksi halus tidak plastis.</td>
+                            <td>Timbunan tanah umum (embankment), subgrade jalan kelas menengah.</td>
+                            <td>Kekuatan geser turun drastis jika basah. Pastikan pemadatan dikontrol ketat pada OMC.</td>
+                            <td class="font-bold text-amber-400">Stabilitas cukup baik, rentan erosi internal (piping).</td>
+                        </tr>
+                        <tr>
+                            <td class="font-black text-center text-cyan-400 text-sm">GC</td>
+                            <td><strong>Clayey gravel:</strong> Campuran kerikil-pasir-lempung dengan fraksi halus lempung plastis.</td>
+                            <td>Inti bendungan zonal (Core) tipe lempung berbatu, timbunan struktural kedap air.</td>
+                            <td>Kendalikan kelembaban saat pemadatan menggunakan Sheepfoot Roller. Tanah bersifat sangat kedap air.</td>
+                            <td class="font-bold text-emerald-400">Daya dukung baik saat kering, kohesif dan kedap.</td>
+                        </tr>
+                        <tr>
+                            <td rowspan="4" class="font-bold text-center align-middle">SANDS<br><span class="text-[10px] font-normal">(Fraksi kasar lolos No.4 &ge; 50%)</span></td>
+                            <td class="font-black text-center text-amber-400 text-sm">SW</td>
+                            <td><strong>Well-graded sand:</strong> Pasir bergradasi baik, ukuran butiran bervariasi mengisi rongga dengan padat.</td>
+                            <td>Lapis pondasi jalan raya, beton campuran bermutu tinggi, reklamasi lahan massal.</td>
+                            <td>Sangat stabil jika dipadatkan dengan alat getar (vibratory) dalam kondisi setengah basah.</td>
+                            <td class="font-bold text-emerald-400">Material luar biasa, gesekan antar butir kuat & padat.</td>
+                        </tr>
+                        <tr>
+                            <td class="font-black text-center text-amber-400 text-sm">SP</td>
+                            <td><strong>Poorly-graded sand:</strong> Pasir bergradasi buruk/seragam, seperti pasir pantai.</td>
+                            <td>Urugan galian pipa bawah tanah, material filter kasar, pekerjaan reklamasi pantai.</td>
+                            <td>Sangat rawan likuifaksi saat gempa jika kondisi muka air tanah tinggi. Butuh densifikasi tambahan.</td>
+                            <td class="font-bold text-amber-400">Struktur berongga banyak, butuh perkuatan geoteknik.</td>
+                        </tr>
+                        <tr>
+                            <td class="font-black text-center text-amber-400 text-sm">SM</td>
+                            <td><strong>Silty sand:</strong> Pasir berlanau, campuran pasir dan lanau halus.</td>
+                            <td>Bahan timbunan jalan peninggi elevasi, tanggul penahan banjir sekunder.</td>
+                            <td>Sangat sensitif terhadap kelembaban. Hindari lereng curam tanpa cover karena mudah tergerus hujan.</td>
+                            <td class="font-bold text-rose-400">Stabilitas marjinal, kehilangan kohesi saat jenuh air.</td>
+                        </tr>
+                        <tr>
+                            <td class="font-black text-center text-amber-400 text-sm">SC</td>
+                            <td><strong>Clayey sand:</strong> Pasir berlempung, campuran pasir dengan lempung kohesif.</td>
+                            <td>Lining/pelapis kolam limbah domestik, timbunan struktur kedap air ringan.</td>
+                            <td>Padatkan lapis demi lapis (layer-by-layer) secara merata dengan Sheepfoot Roller.</td>
+                            <td class="font-bold text-amber-400">Memiliki daya ikat kohesi tinggi, kompresibilitas moderat.</td>
+                        </tr>
+                        <tr>
+                            <td rowspan="7" class="font-bold text-center align-middle bg-slate-800/30">FINE GRAINED<br><span class="text-[10px] font-normal">(Lolos No.200 &ge; 50%)</span></td>
+                            <td rowspan="2" class="font-bold text-center align-middle">SILTS & CLAYS<br><span class="text-[10px] font-normal">(Liquid Limit &lt; 50)</span></td>
+                            <td class="font-black text-center text-emerald-400 text-sm">ML</td>
+                            <td><strong>Silt:</strong> Lanau anorganik berplastisitas rendah, debu batuan halus pudar.</td>
+                            <td>Timbunan umum ringan bebas beban struktural utama.</td>
+                            <td>Sangat buruk untuk pondasi langsung. Rentan frost heave atau mudflow saat hujan lebat.</td>
+                            <td class="font-bold text-rose-400">Hindari pondasi tapak langsung, disarankan pancang deep.</td>
+                        </tr>
+                        <tr>
+                            <td class="font-black text-center text-emerald-400 text-sm">CL</td>
+                            <td><strong>Lean Clay:</strong> Lempung anorganik berplastisitas rendah hingga sedang, tanah liat standar.</td>
+                            <td>Inti kedap air pada bendungan urugan tanah, material struktural tanggul penahan.</td>
+                            <td>Pastikan pemadatan terkontrol baik. Umumnya aman dari potensi kembang-susut ekstrem batuan.</td>
+                            <td class="font-bold text-emerald-400">Sangat baik untuk menahan air, konsolidasi bertahap.</td>
+                        </tr>
+                        <tr>
+                            <td rowspan="2" class="font-bold text-center align-middle">SILTS & CLAYS<br><span class="text-[10px] font-normal">(Liquid Limit &ge; 50)</span></td>
+                            <td class="font-black text-center text-emerald-400 text-sm">MH</td>
+                            <td><strong>Elastic silt:</strong> Lanau elastis/anorganik dengan plastisitas tinggi.</td>
+                            <td>Jarang digunakan untuk memikul beban struktur teknik sipil secara langsung.</td>
+                            <td>Sangat tidak stabil dan rapuh meskipun batas cair tinggi. Harus dikeruk (replace) atau stabilisasi kapur/semen.</td>
+                            <td class="font-bold text-rose-400">Daya dukung sangat rendah, risiko tinggi kegagalan geser.</td>
+                        </tr>
+                        <tr>
+                            <td class="font-black text-center text-emerald-400 text-sm">CH</td>
+                            <td><strong>Fat Clay:</strong> Lempung anorganik plastisitas tinggi, sangat lengket dan kohesif kuat.</td>
+                            <td>Lining dasar TPA sampah/limbah B3, inti bendungan kedap sempurna tanpa rembesan.</td>
+                            <td>Bahaya ekspansif (Swelling). Tanah mengembang ekstrem saat basah dan retak dalam saat kemarau panjang.</td>
+                            <td class="font-bold text-rose-400">Kompresibilitas sangat buruk, butuh fondasi tiang dalam.</td>
+                        </tr>
+                        <tr>
+                            <td rowspan="2" class="font-bold text-center align-middle">ORGANIC SOILS</td>
+                            <td class="font-black text-center text-rose-400 text-sm">OL</td>
+                            <td><strong>Organic silt/clay:</strong> Lanau atau lempung organik dengan plastisitas rendah.</td>
+                            <td>Area pertanian, taman vegetasi, bukan untuk rekayasa konstruksi.</td>
+                            <td>Material membusuk perlahan seiring waktu, menciptakan rongga labil di bawah tanah.</td>
+                            <td class="font-bold text-rose-400">Tidak direkomendasikan untuk menahan beban bangunan.</td>
+                        </tr>
+                        <tr>
+                            <td class="font-black text-center text-rose-400 text-sm">OH</td>
+                            <td><strong>Organic silt/clay:</strong> Lanau atau lempung organik dengan plastisitas tinggi, berbau humus busuk.</td>
+                            <td>Zona konservasi ekologi atau lahan basah rawa alami.</td>
+                            <td>Kapasitas geser tanah mendekati nol jika terganggu akibat aktivitas konstruksi (remolded).</td>
+                            <td class="font-bold text-rose-400">Wajib dihindari atau gunakan fondasi panggung tiang dalam.</td>
+                        </tr>
+                        <tr>
+                            <td class="font-bold text-center align-middle">HIGH ORGANIC</td>
+                            <td class="font-black text-center text-rose-400 text-sm">PT</td>
+                            <td><strong>Peat:</strong> Tanah gambut berserat tinggi dengan kandungan organik pekat melimpah.</td>
+                            <td>Habitat lindung alam liar, kawasan perkebunan tanaman spesifik.</td>
+                            <td>Akan mengalami penurunan ekstrim hingga 80% dari tebal awalnya jika dibebani. Sangat rawan terbakar.</td>
+                            <td class="font-bold text-rose-400">REJECT MATERIAL. Tidak layak konstruksi tanpa rekayasa radikal.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="helpModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm overlay-base" onclick="closeModalWithAnim('helpModal')"></div>
+        <div class="bg-slate-900 border-2 border-emerald-500 rounded-2xl w-full max-w-7xl max-h-[90vh] flex flex-col shadow-[0_0_30px_rgba(16,185,129,0.35)] relative z-10 modal-panel">
+            <div class="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center rounded-t-xl">
+                <div class="flex items-center gap-3 text-emerald-400 font-black cyber-font text-base tracking-wider uppercase">
+                    <i class="fa-solid fa-circle-question"></i> PANDUAN PENGGUNAAN & REFERENSI
+                </div>
+                <button onclick="closeModalWithAnim('helpModal')" class="text-slate-400 hover:text-red-400 cursor-pointer text-xl transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-5 font-sans text-sm text-slate-200 leading-relaxed bg-[var(--bg-main)]">
+                <div class="space-y-2">
+                    <h4 class="cyber-font text-xs font-black text-emerald-400 uppercase tracking-wide border-l-4 border-emerald-500 pl-2.5">Cara Menggunakan Aplikasi</h4>
+                    <ol class="list-decimal list-inside space-y-1.5 bg-[var(--bg-card)] p-4 rounded-xl border border-[var(--border-color)] font-medium text-[var(--text-main)]">
+                        <li><strong>Input Saringan (Manual/Slider):</strong> Tentukan persentase lolos saringan No. 200 dan No. 4 untuk memisahkan fraksi Halus dengan Kasar.</li>
+                        <li><strong>Navigasi 2-Arah Grafik:</strong> Anda dapat mengubah nilai LL/PL di form, atau seret pointer langsung di atas grafik untuk merubah nilai di form secara otomatis.</li>
+                        <li><strong>Kondisi Material Kasar:</strong> Jika nilai Fines (Lolos No. 200) di bawah 5%, grafik akan terkunci karena Atterberg Limit hanya diukur pada fraksi halus tanah.</li>
+                        <li><strong>Tombol Reset:</strong> Klik ikon *refresh* melayang di pojok kanan bawah atau di sebelah tombol Kalkulasi untuk mereset seluruh angka ke kondisi standar secara cepat.</li>
+                    </ol>
+                </div>
+                
+                <div class="space-y-2">
+                    <h4 class="cyber-font text-xs font-black text-purple-400 uppercase tracking-wide border-l-4 border-purple-500 pl-2.5">Tabel Referensi Matriks USCS (Lengkap dengan Parameter Lapangan)</h4>
+                    <div class="overflow-x-auto bg-[var(--bg-card)] p-0 rounded-xl border border-[var(--border-color)]">
+                        <table class="uscs-table">
+                            <colgroup>
+                                <col style="width: 10%;">
+                                <col style="width: 10%;">
+                                <col style="width: 8%;">
+                                <col style="width: 22%;">
+                                <col style="width: 18%;">
+                                <col style="width: 18%;">
+                                <col style="width: 14%;">
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th>MAJOR DIVISIONS</th>
+                                    <th>SUB-DIVISIONS</th>
+                                    <th>SYMBOL</th>
+                                    <th>TYPICAL NAMES & EXPLANATION</th>
+                                    <th>PENERAPAN LAPANGAN</th>
+                                    <th>SARAN TEKNIS</th>
+                                    <th>KESIMPULAN</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td rowspan="8" class="font-bold text-center align-middle bg-slate-800/30">COARSE GRAINED<br><span class="text-[10px] font-normal">(Lolos No.200 &lt; 50%)</span></td>
+                                    <td rowspan="4" class="font-bold text-center align-middle">GRAVELS<br><span class="text-[10px] font-normal">(Fraksi kasar lolos No.4 &lt; 50%)</span></td>
+                                    <td class="font-black text-center text-cyan-400 text-sm">GW</td>
+                                    <td><strong>Well-graded gravel:</strong> Campuran kerikil-pasir dengan sedikit/tanpa fraksi halus.</td>
+                                    <td>Lapis pondasi bawah (sub-base) jalan, bahan urugan struktur, zona transisi/filter bendungan.</td>
+                                    <td>Padatkan dengan Vibratory Roller untuk kerapatan maksimum. Drainase alami sangat baik.</td>
+                                    <td class="font-bold text-emerald-400">Daya dukung tinggi, stabilitas luar biasa.</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-black text-center text-cyan-400 text-sm">GP</td>
+                                    <td><strong>Poorly-graded gravel:</strong> Campuran kerikil-pasir bergradasi buruk atau seragam.</td>
+                                    <td>Bahan pengisi drainase konvensional (french drain), urugan non-struktural ringan.</td>
+                                    <td>Sulit dipadatkan karena ukuran seragam. Berhati-hati jika memikul beban dinamis gempa.</td>
+                                    <td class="font-bold text-amber-400">Daya dukung sedang, meloloskan air dengan cepat.</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-black text-center text-cyan-400 text-sm">GM</td>
+                                    <td><strong>Silty gravel:</strong> Campuran kerikil-pasir-lanau dengan fraksi halus tidak plastis.</td>
+                                    <td>Timbunan tanah umum (embankment), subgrade jalan kelas menengah.</td>
+                                    <td>Kekuatan geser turun drastis jika basah. Pastikan pemadatan dikontrol ketat pada OMC.</td>
+                                    <td class="font-bold text-amber-400">Stabilitas cukup baik, rentan erosi internal (piping).</td>
+                                end tr>
+                                <tr>
+                                    <td class="font-black text-center text-cyan-400 text-sm">GC</td>
+                                    <td><strong>Clayey gravel:</strong> Campuran kerikil-pasir-lempung dengan fraksi lempung plastis.</td>
+                                    <td>Inti bendungan zonal (Core) tipe lempung berbatu, timbunan struktural kedap air.</td>
+                                    <td>Kendalikan kelembaban saat pemadatan menggunakan Sheepfoot Roller. Tanah bersifat sangat kedap air.</td>
+                                    <td class="font-bold text-emerald-400">Daya dukung baik saat kering, kohesif dan kedap.</td>
+                                </tr>
+                                <tr>
+                                    <td rowspan="4" class="font-bold text-center align-middle">SANDS<br><span class="text-[10px] font-normal">(Fraksi kasar lolos No.4 &ge; 50%)</span></td>
+                                    <td class="font-black text-center text-amber-400 text-sm">SW</td>
+                                    <td><strong>Well-graded sand:</strong> Pasir bergradasi baik, ukuran butiran bervariasi mengisi rongga dengan padat.</td>
+                                    <td>Lapis pondasi jalan raya, beton campuran bermutu tinggi, reklamasi lahan massal.</td>
+                                    <td>Sangat stabil jika dipadatkan dengan alat getar (vibratory) dalam kondisi setengah basah.</td>
+                                    <td class="font-bold text-emerald-400">Material luar biasa, gesekan antar butir kuat & padat.</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-black text-center text-amber-400 text-sm">SP</td>
+                                    <td><strong>Poorly-graded sand:</strong> Pasir bergradasi buruk/seragam, pasir pantai.</td>
+                                    <td>Urugan galian pipa bawah tanah, material filter kasar, pekerjaan reklamasi pantai.</td>
+                                    <td>Sangat rawan likuifaksi saat gempa jika kondisi muka air tanah tinggi. Butuh densifikasi tambahan.</td>
+                                    <td class="font-bold text-amber-400">Struktur berongga banyak, butuh perkuatan geoteknik.</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-black text-center text-amber-400 text-sm">SM</td>
+                                    <td><strong>Silty sand:</strong> Pasir berlanau, campuran pasir dan lanau halus.</td>
+                                    <td>Bahan timbunan jalan peninggi elevasi, tanggul penahan banjir sekunder.</td>
+                                    <td>Sangat sensitif terhadap kelembaban. Hindari lereng curam tanpa cover karena mudah tergerus hujan.</td>
+                                    <td class="font-bold text-rose-400">Stabilitas marjinal, kehilangan kohesi saat jenuh air.</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-black text-center text-amber-400 text-sm">SC</td>
+                                    <td><strong>Clayey sand:</strong> Pasir berlempung, campuran pasir dengan lempung kohesif.</td>
+                                    <td>Lining/pelapis kolam limbah domestik, timbunan struktur kedap air ringan.</td>
+                                    <td>Padatkan lapis demi lapis (layer-by-layer) secara merata dengan Sheepfoot Roller.</td>
+                                    <td class="font-bold text-amber-400">Memiliki daya ikat kohesi tinggi, kompresibilitas moderat.</td>
+                                </tr>
+                                <tr>
+                                    <td rowspan="7" class="font-bold text-center align-middle bg-slate-800/30">FINE GRAINED<br><span class="text-[10px] font-normal">(Lolos No.200 &ge; 50%)</span></td>
+                                    <td rowspan="2" class="font-bold text-center align-middle">SILTS & CLAYS<br><span class="text-[10px] font-normal">(Liquid Limit &lt; 50)</span></td>
+                                    <td class="font-black text-center text-emerald-400 text-sm">ML</td>
+                                    <td><strong>Silt:</strong> Lanau anorganik berplastisitas rendah, debu batuan halus.</td>
+                                    <td>Timbunan umum ringan bebas beban struktural utama.</td>
+                                    <td>Sangat buruk untuk pondasi langsung. Rentan frost heave atau mudflow saat hujan lebat.</td>
+                                    <td class="font-bold text-rose-400">Hindari pondasi tapak langsung, disarankan pancang deep.</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-black text-center text-emerald-400 text-sm">CL</td>
+                                    <td><strong>Lean Clay:</strong> Lempung anorganik berplastisitas rendah hingga sedang.</td>
+                                    <td>Inti kedap air pada bendungan urugan tanah, material struktural tanggul penahan.</td>
+                                    <td>Pastikan pemadatan terkontrol baik. Umumnya aman dari potensi kembang-susut ekstrem batuan.</td>
+                                    <td class="font-bold text-emerald-400">Sangat baik untuk menahan air, konsolidasi bertahap.</td>
+                                </tr>
+                                <tr>
+                                    <td rowspan="2" class="font-bold text-center align-middle">SILTS & CLAYS<br><span class="text-[10px] font-normal">(Liquid Limit &ge; 50)</span></td>
+                                    <td class="font-black text-center text-emerald-400 text-sm">MH</td>
+                                    <td><strong>Elastic silt:</strong> Lanau elastis/anorganik dengan plastisitas tinggi.</td>
+                                    <td>Jarang digunakan untuk memikul beban struktur teknik sipil secara langsung.</td>
+                                    <td>Sangat tidak stabil dan rapuh meskipun batas cair tinggi. Harus dikeruk (replace) atau stabilisasi kapur/semen.</td>
+                                    <td class="font-bold text-rose-400">Daya dukung sangat rendah, risiko tinggi kegagalan geser.</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-black text-center text-emerald-400 text-sm">CH</td>
+                                    <td><strong>Fat Clay:</strong> Lempung anorganik plastisitas tinggi, sangat lengket.</td>
+                                    <td>Lining dasar TPA sampah/limbah B3, inti bendungan kedap sempurna tanpa rembesan.</td>
+                                    <td>Bahaya ekspansif (Swelling). Tanah mengembang ekstrem saat basah dan retak dalam saat kemarau panjang.</td>
+                                    <td class="font-bold text-rose-400">Kompresibilitas sangat buruk, butuh fondasi tiang dalam.</td>
+                                </tr>
+                                <tr>
+                                    <td rowspan="2" class="font-bold text-center align-middle">ORGANIC SOILS</td>
+                                    <td class="font-black text-center text-rose-400 text-sm">OL</td>
+                                    <td><strong>Organic silt/clay:</strong> Lanau atau lempung organik dengan plastisitas rendah.</td>
+                                    <td>Area pertanian, taman vegetasi, bukan untuk rekayasa konstruksi.</td>
+                                    <td>Material membusuk perlahan seiring waktu, menciptakan rongga labil di bawah tanah.</td>
+                                    <td class="font-bold text-rose-400">Tidak direkomendasikan untuk menahan beban bangunan.</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-black text-center text-rose-400 text-sm">OH</td>
+                                    <td><strong>Organic silt/clay:</strong> Lanau atau lempung organik dengan plastisitas tinggi.</td>
+                                    <td>Zona konservasi ekologi atau lahan basah rawa alami.</td>
+                                    <td>Kapasitas geser tanah mendekati nol jika terganggu akibat aktivitas konstruksi (remolded).</td>
+                                    <td class="font-bold text-rose-400">Wajib dihindari atau gunakan fondasi panggung tiang dalam.</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-center align-middle">HIGH ORGANIC</td>
+                                    <td class="font-black text-center text-rose-400 text-sm">PT</td>
+                                    <td><strong>Peat:</strong> Tanah gambut berserat tinggi dengan kandungan organik pekat.</td>
+                                    <td>Habitat lindung alam liar, kawasan perkebunan tanaman spesifik.</td>
+                                    <td>Akan mengalami penurunan ekstrim hingga 80% dari tebal awalnya jika dibebani. Sangat rawan terbakar.</td>
+                                    <td class="font-bold text-rose-400">REJECT MATERIAL. Tidak layak konstruksi tanpa rekayasa radikal.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <h4 class="cyber-font text-xs font-black text-cyan-400 uppercase tracking-wide border-l-4 border-cyan-500 pl-2.5">Aturan Matriks (ASTM D-2487)</h4>
+                    <ul class="list-disc list-inside space-y-1 bg-[var(--bg-card)] p-4 rounded-xl border border-[var(--border-color)] font-medium text-[var(--text-main)]">
+                        <li><strong>Garis A (A-Line):</strong> Formula <code>PI = 0.73 &times; (LL - 20)</code>. Pemisah antara Clay (Atas) dan Silt (Bawah).</li>
+                        <li><strong>Garis U (U-Line):</strong> Formula <code>PI = 0.9 &times; (LL - 8)</code>. Batas validitas tertinggi data lab.</li>
+                        <li><strong>Zona Arsir (CL-ML):</strong> Wilayah transisi PI antara 4 hingga 7.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="creatorModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm overlay-base" onclick="closeModalWithAnim('creatorModal')"></div>
+        <div class="bg-slate-900 border-2 border-cyan-500 rounded-2xl w-full max-w-md p-6 shadow-[0_0_30px_rgba(6,182,212,0.45)] relative z-10 modal-panel">
+            <button onclick="closeModalWithAnim('creatorModal')" class="absolute top-4 right-4 text-slate-400 hover:text-red-500 cursor-pointer text-xl transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="text-center pb-3 mb-4 border-b border-slate-800 flex flex-col items-center">
+                <div class="h-16 w-16 bg-gradient-to-tr from-cyan-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg mb-3 hover:scale-110 transition-transform cursor-pointer">
+                    <i class="fa-solid fa-user-gear text-3xl text-slate-950"></i>
+                </div>
+                <h3 class="text-2xl font-bold cyber-font text-cyan-400 tracking-wider">PROG. CREATOR</h3>
+                <p class="text-xs font-mono text-slate-400 font-bold mt-0.5">Sistem Pengembang Aplikasi</p>
+            </div>
+            <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-3 font-mono text-xs font-bold">
+                <div class="flex items-center gap-3 py-1.5 border-b border-slate-800/50">
+                    <i class="fa-solid fa-user text-cyan-400 text-lg w-5 text-center"></i>
+                    <div>
+                        <span class="block text-[10px] text-slate-500">NAMA CREATOR & AHLI GEOTEKNIK</span>
+                        <a href="https://www.facebook.com/m.hartadi" target="_blank" class="text-cyan-400 font-black hover:underline flex items-center gap-1.5">Mohamad Hartadi <i class="fa-brands fa-facebook"></i></a>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 py-1.5 border-b border-slate-800/50">
+                    <i class="fa-brands fa-whatsapp text-emerald-400 text-xl w-5 text-center"></i>
+                    <div>
+                        <span class="block text-[10px] text-slate-500">KONTAK WHATSAPP</span>
+                        <a href="https://wa.me/6282231036047" target="_blank" class="text-emerald-400 font-black hover:underline">082231036047</a>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 py-1.5">
+                    <i class="fa-solid fa-globe text-pink-400 text-lg w-5 text-center"></i>
+                    <div>
+                        <span class="block text-[10px] text-slate-500">BLOG RESMI</span>
+                        <a href="https://newbieonline7.blogspot.com/" target="_blank" class="text-pink-400 font-black hover:underline text-[11px] break-all">https://newbieonline7.blogspot.com/</a>
+                    </div>
+                </div>
+            </div>
+            <button onclick="closeModalWithAnim('creatorModal')" class="w-full mt-4 bg-slate-800 hover:bg-slate-700 text-white font-mono text-xs font-black py-3 rounded-lg transition-all uppercase">
+                Tutup Profil
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let currentTheme = 'dark';
+        let isDraggingChart = false;
+
+        function openModalWithAnim(modalId) {
+            const modal = document.getElementById(modalId);
+            const overlay = modal.querySelector('.overlay-base');
+            const panel = modal.querySelector('.modal-panel');
+            modal.classList.remove('hidden');
+            if(overlay) { overlay.classList.remove('overlay-exit'); overlay.classList.add('overlay-enter'); }
+            if(panel) { panel.classList.remove('modal-exit'); panel.classList.add('modal-enter'); }
+        }
+
+        function closeModalWithAnim(modalId) {
+            const modal = document.getElementById(modalId);
+            const overlay = modal.querySelector('.overlay-base');
+            const panel = modal.querySelector('.modal-panel');
+            if(overlay) { overlay.classList.remove('overlay-enter'); overlay.classList.add('overlay-exit'); }
+            if(panel) { panel.classList.remove('modal-enter'); panel.classList.add('modal-exit'); }
+            setTimeout(() => { modal.classList.add('hidden'); }, 300);
+        }
+
+        function resetFormInputs() {
+            document.getElementById('f200').value = 55;
+            document.getElementById('valF200').innerText = '55.0%';
+            document.getElementById('f4').value = 85;
+            document.getElementById('valF4').innerText = '85.0%';
+            document.getElementById('ll').value = 47;
+            document.getElementById('pl').value = 18;
+            document.getElementById('cu').value = 5.2;
+            document.getElementById('cc').value = 1.8;
+            document.getElementById('isOrganic').checked = false;
+            evaluateUscsClassification();
+        }
+
+        const chatbotDb = {
+            "GW": { name: "Well Graded Gravel", app: "Lapis pondasi bawah (sub-base) jalan, bahan urugan struktur, zona transisi/filter pada bendungan.", advice: "Padatkan material dengan Vibratory Roller untuk mendapatkan kepadatan maksimum. Drainase alami sangat baik.", conclusion: "Material sangat baik dan memiliki daya dukung struktural (bearing capacity) yang tinggi." },
+            "GP": { name: "Poorly Graded Gravel", app: "Bahan pengisi drainase (*french drain*), urugan non-struktural.", advice: "Sulit dipadatkan sempurna karena butirannya seragam. Butuh perhatian khusus jika dipakai menahan beban dinamis.", conclusion: "Daya dukung sedang. Kurang ideal untuk subgrade jalan raya tanpa modifikasi gradasi." },
+            "GM": { name: "Silty Gravel", app: "Timbunan tanah (*embankment*), subgrade.", advice: "Kekuatan geser bisa turun drastis jika terpapar air berlebih. Pastikan pemadatan dilakukan pada Kadar Air Optimum (OMC).", conclusion: "Material cukup baik namun rentan terhadap erosi air (piping) pada bendungan." },
+            "GC": { name: "Clayey Gravel", app: "Inti bendungan zonal (Core) tipe lempung berbatu, timbunan struktural kedap air.", advice: "Kendalikan kelembaban saat pemadatan menggunakan *Sheepfoot Roller*. Sifat lempung membuat tanah ini kedap air.", conclusion: "Daya dukung baik saat kering, namun bisa plastis jika basah. Permeabilitas sangat rendah." },
+            "SW": { name: "Well Graded Sand", app: "Lapis pondasi jalan, beton campuran (jika bersih), reklamasi lahan.", advice: "Sangat stabil jika dipadatkan dengan alat getar dalam kondisi setengah basah.", conclusion: "Material luar biasa. Gesekan antar butir sangat padat dan tidak mudah mengalami likuifaksi." },
+            "SP": { name: "Poorly Graded Sand", app: "Urugan galian pipa, material filter, reklamasi pantai.", advice: "Sangat rawan likuifaksi saat terjadi gempa bumi di kondisi muka air tanah tinggi. Perlu densifikasi.", conclusion: "Struktur berongga banyak (void). Butuh perkuatan geoteknik khusus jika memikul beban berat." },
+            "SM": { name: "Silty Sand", app: "Bahan timbunan jalan, tanggul penahan.", advice: "Sangat sensitif terhadap kelembaban. Hindari penggunaan di lereng curam tanpa perlindungan (*cover*) karena mudah tergerus hujan.", conclusion: "Stabilitas marjinal. Kehilangan kohesi saat jenuh air." },
+            "SC": { name: "Clayey Sand", app: "Lining/pelapis kolam limbah, timbunan kedap air.", advice: "Padatkan lapis demi lapis (layer-by-layer) dengan alat pemadat bertapak domba (*sheepfoot*).", conclusion: "Memiliki daya ikat (kohesi) tinggi berkat lempung, namun kompresibilitasnya moderat." },
+            "ML": { name: "Silt of Low Plasticity", app: "Timbunan umum ringan.", advice: "Sangat buruk untuk pondasi. Rentan terhadap pergerakan *frost heave* di daerah dingin atau aliran lanau (mudflow) saat hujan lebat.", conclusion: "Hindari meletakkan pondasi tapak secara langsung. Pertimbangkan pancang/bored pile." },
+            "CL": { name: "Clay of Low Plasticity", app: "Inti kedap air pada bendungan tanah, material pembuat bata.", advice: "Pastikan pemadatan terkontrol. Umumnya aman dari potensi kembang-susut ekstrem.", conclusion: "Material favorit untuk struktur penahan air karena impermeabilitasnya, namun butuh waktu lama untuk konsolidasi (penurunan) selesai." },
+            "MH": { name: "Elastic Silt", app: "Jarang digunakan untuk struktur.", advice: "Sangat tidak stabil, memiliki batas cair tinggi namun rapuh. Usually harus dikeruk dan diganti (replace) atau stabilisasi semen/kapur.", conclusion: "Daya dukung sangat rendah. Bahaya laten kegagalan geser." },
+            "CH": { name: "High Plasticity Clay / Fat Clay", app: "Lining dasar TPA sampah, inti bendungan kedap sempurna.", advice: "BAHAYA SWELLING! Tanah ini mengembang kuat saat basah dan retak (menyusut) saat kemarau panjang. Dapat meremukkan beton pondasi ringan atau jalan kaku (rigid pavement).", conclusion: "Sangat kedap air tapi kompresibilitas luar biasa buruk. Rekomendasi: *Soil replacement* atau fondasi tiang dalam." },
+            "OL": { name: "Organic Low Plasticity", app: "Pertanian, bukan untuk teknik sipil.", advice: "Material membusuk perlahan seiring waktu, menciptakan rongga di dalam tanah bawah.", conclusion: "Sangat tidak direkomendasikan untuk menahan beban bangunan apapun." },
+            "OH": { name: "Organic High Plasticity", app: "Zona konservasi lahan basah.", advice: "Kapasitas geser nyaris nol jika diganggu (remolded).", conclusion: "Hindari area ini atau gunakan struktur panggung/tiang pancang dalam menembus lapisan OH." },
+            "PT": { name: "Peat (Gambut)", app: "Habitat alam, perkebunan spesifik.", advice: "Gambut (Peat) adalah material organik 100%. Akan mengalami kompresi/penurunan hingga 80% dari tebal awalnya jika dibebani. Sangat rentan terbakar.", conclusion: "REJECT MATERIAL. Tidak layak untuk konstruksi tanpa rekayasa tanah ekstrem (seperti *Preloading* atau penggunaan *Geofoam/EPS*)." }
+        };
+
+        const uscsDatabase = {
+            "GW": "Well graded gravels, gravel-sand mixtures, or sand-gravel-cobble mixtures.",
+            "GP": "Poorly graded gravels, gravel-sand-silt mixtures.",
+            "GM": "Silty gravels, gravel-sand-silt mixtures.",
+            "GC": "Clayey gravels, gravel-sand-clay mixtures.",
+            "SW": "Well graded sands, gravelly sands.",
+            "SP": "Poorly graded sands, gravelly sands.",
+            "SM": "Silty sands, sand-silt mixtures.",
+            "SC": "Clayey sands, sand-clay mixtures.",
+            "ML": "Inorganic silts, clayey silts of low to medium plasticity.",
+            "MH": "Inorganic silts, micaceous or diatomaceous silty soils, elastic silts.",
+            "CL": "Inorganic clays of low to medium plasticity, gravelly, sandy, and silty clays.",
+            "CH": "Inorganic clays of high plasticity, fat clays, sandy clays of high plasticity.",
+            "OL": "Organic silts and clays of low to medium plasticity, sandy organic silts and clays.",
+            "OH": "Organic silts and clays of high plasticity, sandy organic silts and clays.",
+            "PT": "Peat and other highly organic soils primarily organic matter (dark in color and organic odor)."
+        };
+
+        const uscsDatabaseIndo = {
+            "GW": "Kerikil bergradasi baik, campuran pasir-kerikil stabil.",
+            "GP": "Kerikil bergradasi buruk, butiran cenderung seragam.",
+            "GM": "Kerikil berlanau, campuran kerikil-pasir-lanau.",
+            "GC": "Kerikil berlempung, mengandung material kohesif.",
+            "SW": "Pasir bergradasi baik, sangat padat dan mantap.",
+            "SP": "Pasir bergradasi buruk, memiliki risiko likuifaksi.",
+            "SM": "Pasir berlanau, rentan terhadap erosi air.",
+            "SC": "Pasir berlempung, memiliki daya ikat kohesif.",
+            "ML": "Lanau anorganik, plastisitas rendah sampai sedang.",
+            "MH": "Lanau elastis, lanau anorganik dengan plastisitas tinggi.",
+            "CL": "Lempung anorganik, plastisitas rendah hingga sedang.",
+            "CH": "Lempung plastisitas tinggi (Fat Clay), kembang-susut tinggi.",
+            "OL": "Lanau/lempung organik dengan plastisitas rendah.",
+            "OH": "Lanau/lempung organik dengan plastisitas tinggi.",
+            "PT": "Tanah gambut berserat tinggi, kapasitas beban sangat buruk."
+        };
+
+        window.onload = function() {
+            initInputHandlers();
+            evaluateUscsClassification();
+            initCanvasEvents();
+        };
+
+        function toggleFloatingChatbot() {
+            const panel = document.getElementById('floatingChatPanel');
+            const icon = document.getElementById('botToggleIcon');
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                panel.style.display = 'flex'; 
+                icon.className = "fa-solid fa-xmark text-xl text-slate-950";
+            } else {
+                panel.classList.add('hidden');
+                panel.style.display = '';
+                icon.className = "fa-solid fa-comments text-xl";
+            }
+        }
+
+        function toggleThemeInterface() {
+            const body = document.getElementById('appBody');
+            const themeIcon = document.getElementById('themeIcon');
+            const themeText = document.getElementById('themeText');
+            if (currentTheme === 'dark') {
+                body.classList.remove('theme-dark'); body.classList.add('theme-light');
+                themeIcon.className = "fa-solid fa-sun mr-1"; themeText.innerText = "LIGHT";
+                currentTheme = 'light';
+            } else {
+                body.classList.remove('theme-light'); body.classList.add('theme-dark');
+                themeIcon.className = "fa-solid fa-moon mr-1"; themeText.innerText = "DARK";
+                currentTheme = 'dark';
+            }
+            evaluateUscsClassification();
+        }
+
+        function initInputHandlers() {
+            document.getElementById('f200').addEventListener('input', function() {
+                document.getElementById('valF200').innerText = parseFloat(this.value).toFixed(1) + '%';
+                evaluateUscsClassification();
+            });
+            document.getElementById('f4').addEventListener('input', function() {
+                document.getElementById('valF4').innerText = parseFloat(this.value).toFixed(1) + '%';
+                evaluateUscsClassification();
+            });
+            ['ll', 'pl', 'cu', 'cc', 'isOrganic'].forEach(id => {
+                document.getElementById(id).addEventListener('input', evaluateUscsClassification);
+            });
+        }
+
+        function evaluateUscsClassification() {
+            const f200 = parseFloat(document.getElementById('f200').value) || 0;
+            const f4 = parseFloat(document.getElementById('f4').value) || 0;
+            const ll = parseFloat(document.getElementById('ll').value) || 0;
+            const pl = parseFloat(document.getElementById('pl').value) || 0;
+            const cu = parseFloat(document.getElementById('cu').value) || 0;
+            const cc = parseFloat(document.getElementById('cc').value) || 0;
+            const isOrganic = document.getElementById('isOrganic').checked;
+
+            const pi = ll - pl;
+            const aLine = 0.73 * (ll - 20);
+
+            let majorDiv = ""; let symbol = ""; let grainCriteria = "";
+            let linePos = "N/A (Material Kasar)"; let gradMetric = `Cu = ${cu.toFixed(1)}, Cc = ${cc.toFixed(1)}`;
+            
+            const isPureCoarse = (f200 < 5);
+            const coarseOverlay = document.getElementById('coarseWarning');
+
+            if (f200 < 50) {
+                majorDiv = "COARSE-GRAINED SOILS (TANAH BERBUTIR KASAR)";
+                coarseOverlay.classList.toggle('hidden', !isPureCoarse); 
+                const gravelFraction = 100 - f4; const sandFraction = f4 - f200;
+
+                if (gravelFraction >= sandFraction) {
+                    grainCriteria = "Gravels (> 50% fraksi kasar tertahan No.4)";
+                    if (f200 < 5) {
+                        symbol = (cu >= 4 && cc >= 1 && cc <= 3) ? "GW" : "GP";
+                    } else if (f200 > 12) {
+                        if (pi > 7 && pi >= aLine) symbol = "GC";
+                        else if (pi < 4 || pi < aLine) symbol = "GM";
+                        else symbol = "GC-GM";
+                    } else {
+                        const wellGraded = (cu >= 4 && cc >= 1 && cc <= 3);
+                        const isClayey = (pi > 7 && pi >= aLine);
+                        symbol = wellGraded ? (isClayey ? "GW-GC" : "GW-GM") : (isClayey ? "GP-GC" : "GP-GM");
+                    }
+                } else {
+                    grainCriteria = "Sands (>= 50% fraksi kasar lolos No.4)";
+                    if (f200 < 5) {
+                        symbol = (cu >= 6 && cc >= 1 && cc <= 3) ? "SW" : "SP";
+                    } else if (f200 > 12) {
+                        if (pi > 7 && pi >= aLine) symbol = "SC";
+                        else if (pi < 4 || pi < aLine) symbol = "SM";
+                        else symbol = "SC-SM";
+                    } else {
+                        const wellGraded = (cu >= 6 && cc >= 1 && cc <= 3);
+                        const isClayey = (pi > 7 && pi >= aLine);
+                        symbol = wellGraded ? (isClayey ? "SW-SC" : "SW-SM") : (isClayey ? "SP-SC" : "SP-SM");
+                    }
+                }
+            } else {
+                majorDiv = "FINE-GRAINED SOILS (TANAH BERBUTIR HALUS)";
+                grainCriteria = "Fines (Lolos Saringan No. 200 >= 50%)";
+                gradMetric = "N/A (Metrik Gradasi Tidak Berlaku)";
+                coarseOverlay.classList.add('hidden'); 
+
+                if (ll < 50) {
+                    linePos = pi >= aLine ? (pi >= 4 && pi <= 7 ? "Zona CL-ML (Transisi)" : "Di atas Garis A") : "Di bawah Garis A";
+                    if (isOrganic) { symbol = "OL"; } else {
+                        if (pi > 7 && pi >= aLine) symbol = "CL";
+                        else if (pi < 4 || pi < aLine) symbol = "ML";
+                        else symbol = "CL-ML";
+                    }
+                } else {
+                    linePos = pi >= aLine ? "Di atas Garis A (Plastisitas Tinggi)" : "Di bawah Garis A (Plastisitas Tinggi)";
+                    if (isOrganic) { symbol = "OH"; } else { symbol = pi >= aLine ? "CH" : "MH"; }
+                }
+            }
+
+            document.getElementById('resMajorDivision').innerText = majorDiv;
+            document.getElementById('resGroupSymbol').innerText = symbol;
+            document.getElementById('resPiText').innerText = pi.toFixed(1) + '%';
+            document.getElementById('chartCoordText').innerText = `(LL: ${Math.round(ll)}, PI: ${Math.round(pi)})`;
+
+            const baseSymbol = symbol.includes('-') ? symbol.split('-')[0] : symbol;
+            document.getElementById('logGroupIdName').innerText = `${symbol} - ${uscsDatabase[baseSymbol] || uscsDatabase[symbol] || '-'}`;
+            document.getElementById('logGrainCriteria').innerText = grainCriteria;
+            document.getElementById('logLinePosition').innerText = linePos;
+            document.getElementById('logGradationMetric').innerText = gradMetric;
+
+            drawPlasticityChart(ll, pi);
+        }
+
+        function drawPlasticityChart(userLL, userPI) {
+            const canvas = document.getElementById('uscsChartCanvas'); 
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const pL = 70, pR = 30, pT = 30, pB = 60;
+            const gW = canvas.width - pL - pR; const gH = canvas.height - pT - pB;
+
+            function getX(val) { return pL + (val * gW / 100); }
+            function getY(val) { return (canvas.height - pB) - (val * gH / 60); }
+
+            ctx.strokeStyle = currentTheme === 'dark' ? '#334155' : '#cbd5e1'; ctx.lineWidth = 1.5;
+            for (let x = 10; x <= 100; x += 10) { ctx.beginPath(); ctx.moveTo(getX(x), getY(0)); ctx.lineTo(getX(x), getY(60)); ctx.stroke(); }
+            for (let y = 10; y <= 60; y += 10) { ctx.beginPath(); ctx.moveTo(getX(0), getY(y)); ctx.lineTo(getX(100), getY(y)); ctx.stroke(); }
+
+            ctx.strokeStyle = currentTheme === 'dark' ? '#64748b' : '#475569'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(getX(50), getY(0)); ctx.lineTo(getX(50), getY(60)); ctx.stroke();
+
+            ctx.strokeStyle = currentTheme === 'dark' ? '#94a3b8' : '#1e293b'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(pL, pT); ctx.lineTo(pL, canvas.height - pB); ctx.lineTo(canvas.width - pR, canvas.height - pB); ctx.stroke();
+
+            ctx.fillStyle = currentTheme === 'dark' ? '#f8fafc' : '#020617'; 
+            ctx.font = 'bold 14px "JetBrains Mono"'; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+            for (let x = 0; x <= 100; x += 10) ctx.fillText(x, getX(x), canvas.height - pB + 10);
+            ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+            for (let y = 0; y <= 60; y += 10) ctx.fillText(y, pL - 10, getY(y));
+
+            ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2.5; ctx.setLineDash([6, 5]);
+            ctx.beginPath(); ctx.moveTo(getX(8), getY(0)); ctx.lineTo(getX(75), getY(60)); ctx.stroke(); ctx.setLineDash([]);
+
+            ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(getX(20), getY(0)); ctx.lineTo(getX(100), getY(0.73 * (100 - 20))); ctx.stroke();
+
+            ctx.fillStyle = 'rgba(245,158,11,0.3)';
+            ctx.fillRect(getX(4), getY(7), getX(29.5) - getX(4), getY(4) - getY(7));
+
+            ctx.fillStyle = currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(15, 23, 42, 0.7)'; 
+            ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText("CH", getX(75), getY(45));
+            ctx.fillText("CL", getX(35), getY(25));
+            ctx.fillText("MH / OH", getX(75), getY(14));
+            ctx.fillText("ML / OL", getX(38), getY(8));
+            ctx.font = 'bold 12px sans-serif'; ctx.fillText("CL-ML", getX(16), getY(5.5));
+
+            ctx.font = 'bold italic 13px sans-serif'; 
+            ctx.fillStyle = '#ef4444'; ctx.textAlign = 'left';
+            ctx.fillText("U-LINE (PI=0.9*[LL-8])", getX(24), getY(0.9 * (24 - 8)) - 10);
+
+            ctx.fillStyle = '#06b6d4'; ctx.textAlign = 'left';
+            ctx.fillText("A-LINE (PI=0.73*[LL-20])", getX(65), getY(0.73 * (65 - 20)) - 10);
+
+            ctx.fillStyle = currentTheme === 'dark' ? '#ffffff' : '#020617'; ctx.font = "bold 15px sans-serif"; ctx.textAlign = 'center';
+            ctx.fillText("LIQUID LIMIT (LL) %", pL + gW/2, canvas.height - 20);
+            ctx.save(); ctx.translate(20, pT + gH/2); ctx.rotate(-Math.PI / 2); ctx.fillText("PLASTICITY INDEX (PI) %", 0, 0); ctx.restore();
+
+            if(userLL <= 100 && userPI <= 60) {
+                const px = getX(userLL); const py = getY(userPI);
+                ctx.fillStyle = currentTheme === 'light' ? '#d97706' : '#f59e0b';
+                ctx.beginPath(); ctx.arc(px, py, 9, 0, 2 * Math.PI); ctx.fill(); 
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke();
+                ctx.strokeStyle = currentTheme === 'light' ? 'rgba(217, 119, 6, 0.4)' : 'rgba(245, 158, 11, 0.4)'; 
+                ctx.lineWidth = 6; ctx.stroke();
+            }
+        }
+
+        function initCanvasEvents() {
+            const canvas = document.getElementById('uscsChartCanvas');
+            const tooltip = document.getElementById('chartTooltip');
+            if (!canvas) return;
+
+            function syncChartToInput(clientX, clientY) {
+                if (parseFloat(document.getElementById('f200').value) < 5) return; 
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = (clientX - rect.left) * (canvas.width / rect.width);
+                const mouseY = (clientY - rect.top) * (canvas.height / rect.height);
+                const pL = 70, pR = 30, pT = 30, pB = 60;
+                const gW = canvas.width - pL - pR; const gH = canvas.height - pT - pB;
+                let llValue = (mouseX - pL) * 100 / gW;
+                let piValue = ((canvas.height - pB) - mouseY) * 60 / gH;
+
+                if(llValue >= 0 && llValue <= 100 && piValue >= 0 && piValue <= 60) {
+                    document.getElementById('ll').value = Math.round(llValue);
+                    document.getElementById('pl').value = Math.max(0, Math.round(llValue) - Math.round(piValue));
+                    evaluateUscsClassification();
+                }
+            }
+
+            canvas.addEventListener('mousemove', (e) => {
+                if(parseFloat(document.getElementById('f200').value) < 5) { tooltip.style.display = "none"; return; }
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+                const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+                const pL = 70, pR = 30, pT = 30, pB = 60;
+                const gW = canvas.width - pL - pR; const gH = canvas.height - pT - pB;
+                let llValue = (mouseX - pL) * 100 / gW;
+                let piValue = ((canvas.height - pB) - mouseY) * 60 / gH;
+
+                if (mouseX >= pL && mouseX <= canvas.width - pR && mouseY >= pT && mouseY <= canvas.height - pB) {
+                    let zoneCode = ""; let aLine = 0.73 * (llValue - 20);
+                    if (llValue < 50) {
+                        if (piValue > 7 && piValue >= aLine) zoneCode = "CL";
+                        else if (piValue >= 4 && piValue <= 7 && piValue >= aLine) zoneCode = "CL-ML";
+                        else zoneCode = "ML";
+                    } else { zoneCode = piValue >= aLine ? "CH" : "MH"; }
+
+                    tooltip.style.display = "block";
+                    let tooltipX = e.clientX - rect.left + 25;
+                    let tooltipY = e.clientY - rect.top + 25;
+                    if (tooltipX + 260 > rect.width) tooltipX = e.clientX - rect.left - 280;
+                    if (tooltipY + 110 > rect.height) tooltipY = e.clientY - rect.top - 130;
+                    tooltip.style.left = tooltipX + "px"; tooltip.style.top = tooltipY + "px";
+                    
+                    let descEng = uscsDatabase[zoneCode] || ''; let descIndo = uscsDatabaseIndo[zoneCode] || '';
+                    tooltip.innerHTML = `
+                        <div style="font-weight: 800; color: #38bdf8; margin-bottom: 4px; font-size: 13px;">Zona Halus USCS: ${zoneCode}</div>
+                        <div style="color: #f59e0b; font-weight: bold; margin-bottom: 6px;">LL: ${Math.round(llValue)}% // PI: ${Math.round(piValue)}%</div>
+                        <div style="font-size: 11px; color: #e2e8f0; border-top: 1px solid #334155; padding-top: 6px; font-weight: 600;">
+                            ${descIndo}<br><span style="color:#94a3b8; font-style:italic;">(${descEng})</span>
+                        </div>
+                    `;
+                } else { tooltip.style.display = "none"; }
+            });
+
+            canvas.addEventListener('mouseleave', () => { tooltip.style.display = "none"; });
+            canvas.addEventListener('mousedown', (e) => { isDraggingChart = true; syncChartToInput(e.clientX, e.clientY); });
+            window.addEventListener('mousemove', (e) => { if (isDraggingChart) syncChartToInput(e.clientX, e.clientY); });
+            window.addEventListener('mouseup', () => { isDraggingChart = false; });
+            canvas.addEventListener('touchstart', (e) => { isDraggingChart = true; syncChartToInput(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, {passive: false});
+            canvas.addEventListener('touchmove', (e) => { if (isDraggingChart) { syncChartToInput(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); } }, {passive: false});
+            canvas.addEventListener('touchend', () => { isDraggingChart = false; });
+        }
+
+        function processUserChatMessage() {
+            const inputField = document.getElementById('chatInputField');
+            const messageText = inputField.value.trim().toUpperCase();
+            if (!messageText) return;
+
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML += `
+                <div class="flex gap-3 justify-end mt-3">
+                    <div class="bg-cyan-600 text-slate-950 p-3 rounded-l-xl rounded-br-xl text-sm font-bold font-sans max-w-[85%] shadow-md">
+                        ${messageText}
+                    </div>
+                </div>
+            `;
+            inputField.value = "";
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            let botReply = "";
+            if (messageText.includes("USCS") || messageText.includes("PENGEMBANG") || messageText.includes("CREATOR") || messageText.includes("HARTADI")) {
+                botReply = "Sistem **USCS (Unified Soil Classification System)** adalah pedoman universal (ASTM D-2487) yang digunakan dalam rekayasa geoteknik untuk menilai perilaku mekanis tanah.<br><br>Aplikasi interaktif ini dikembangkan dan dirancang oleh bapak **Mohamad Hartadi**, seorang pakar ahli geologi dan Tenaga Ahli Bendungan yang berdedikasi menciptakan perangkat lunak (*software*) untuk mempermudah perhitungan teknis rekayasa sipil.";
+            } else {
+                botReply = "Maaf, silakan masukkan **Simbol USCS (cth: SW, CH, GM)** yang valid atau tanyakan mengenai **USCS/Pengembang**.";
+                for (const symbol in chatbotDb) {
+                    if (messageText.includes(symbol)) {
+                        const data = chatbotDb[symbol];
+                        botReply = `
+                            <div class="mb-2">
+                                <span class="bg-amber-500 text-slate-950 px-2 py-0.5 rounded-sm font-black text-sm tracking-widest mr-1">${symbol}</span>
+                                <strong class="text-white">${data.name}</strong>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700 space-y-2 mt-2">
+                                <div>
+                                    <span class="text-cyan-400 font-bold block text-xs uppercase"><i class="fa-solid fa-helmet-safety w-4"></i> Penerapan Lapangan:</span>
+                                    <span class="text-slate-300 text-[13px]">${data.app}</span>
+                                </div>
+                                <div class="border-t border-slate-700/50 pt-2">
+                                    <span class="text-emerald-400 font-bold block text-xs uppercase"><i class="fa-solid fa-wrench w-4"></i> Saran Teknis:</span>
+                                    <span class="text-slate-300 text-[13px]">${data.advice}</span>
+                                </div>
+                                <div class="border-t border-slate-700/50 pt-2">
+                                    <span class="text-rose-400 font-bold block text-xs uppercase"><i class="fa-solid fa-clipboard-check w-4"></i> Kesimpulan:</span>
+                                    <span class="text-slate-300 text-[13px] font-bold">${data.conclusion}</span>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    }
+                }
+            }
+
+            setTimeout(() => {
+                chatContainer.innerHTML += `
+                    <div class="flex gap-3 mt-3 animate-fadeIn">
+                        <div class="bg-cyan-950 border border-cyan-600/50 h-8 w-8 rounded flex items-center justify-center flex-shrink-0 text-cyan-400"><i class="fa-solid fa-robot text-xs"></i></div>
+                        <div class="bg-slate-800 border border-slate-700 p-3 rounded-r-xl rounded-bl-xl text-slate-200 text-sm font-sans w-full shadow-md leading-relaxed">
+                            <p class="font-bold text-[11px] text-cyan-400 mb-2">🤖 USCS RESPONSE:</p>
+                            ${botReply}
+                        </div>
+                    </div>
+                `;
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }, 600);
+        }
+    </script>
+</body>
+</html>
